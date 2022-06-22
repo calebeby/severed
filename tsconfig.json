@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "incremental": true,
+    "composite": true,
+    "moduleDetection": "force",
+    "module": "NodeNext",
+    "declaration": true,
+    "outDir": "dist",
+    "declarationMap": true,
+    "emitDeclarationOnly": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "references": [{ "path": "./packages/severed" }]
+}

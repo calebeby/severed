@@ -1,0 +1,24 @@
+{
+  "0 debug pnpm:scope": {
+    "selected": 1,
+    "workspacePrefix": "/home/caleb/Programming/calebeby/severed"
+  },
+  "1 info pnpm": {
+    "err": {
+      "name": "Error",
+      "message": "not found: build",
+      "code": "ENOENT",
+      "stack": "Error: not found: build\n    at getNotFoundError (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:21148:51)\n    at Function.whichSync [as sync] (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:21225:13)\n    at getCommandAbsolutePathSync (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:22903:44)\n    at default_1 (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:22912:32)\n    at /home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:179918:39"
+    }
+  },
+  "2 error pnpm": {
+    "code": "ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL",
+    "prefix": "/home/caleb/Programming/calebeby/severed/packages/severed",
+    "err": {
+      "name": "pnpm",
+      "message": "not found: build",
+      "code": "ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL",
+      "stack": "Error: not found: build\n    at getNotFoundError (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:21148:51)\n    at Function.whichSync [as sync] (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:21225:13)\n    at getCommandAbsolutePathSync (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:22903:44)\n    at default_1 (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:22912:32)\n    at /home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:179918:39"
+    }
+  }
+}

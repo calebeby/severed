@@ -1,0 +1,12 @@
+{
+  "name": "severed",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "keywords": [],
+  "author": "Caleb Eby",
+  "license": "MIT"
+}

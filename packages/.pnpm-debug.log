@@ -1,0 +1,16 @@
+{
+  "0 debug pnpm:scope": {
+    "selected": 1,
+    "workspacePrefix": "/home/caleb/Programming/calebeby/severed"
+  },
+  "1 error pnpm": {
+    "code": "ERR_PNPM_CANNOT_REMOVE_MISSING_DEPS",
+    "hint": "Available dependencies: prettier, severed",
+    "err": {
+      "name": "pnpm",
+      "message": "Cannot remove 'esbuild': no such dependency found",
+      "code": "ERR_PNPM_CANNOT_REMOVE_MISSING_DEPS",
+      "stack": "pnpm: Cannot remove 'esbuild': no such dependency found\n    at Object.handler (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:124309:15)\n    at async /home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:187855:21\n    at async run (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:187829:34)\n    at async runPnpm (/home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:188047:5)\n    at async /home/caleb/.local/share/nvm/v18.4.0/lib/node_modules/pnpm/dist/pnpm.cjs:188039:7"
+    }
+  }
+}

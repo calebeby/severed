@@ -2,7 +2,8 @@
   "name": "severed-root",
   "private": true,
   "scripts": {
-    "build": "pnpm run -r build"
+    "build": "pnpm run -r build",
+    "test": "pnpm run -r test"
   },
   "author": "Caleb Eby",
   "license": "MIT",
@@ -15,6 +16,7 @@
     "esbuild": "^0.14.47",
     "prettier": "^2.7.1",
     "severed": "workspace:^0.0.0",
-    "typescript": "^4.7.4"
+    "typescript": "^4.7.4",
+    "vitest": "^0.15.2"
   }
 }

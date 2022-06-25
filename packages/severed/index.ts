@@ -1,6 +1,8 @@
 import { dedent } from './dedent.js';
 import { createUnplugin } from 'unplugin';
 import { transform } from './transform-file.js';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 const hash = (inputs: string[]) => {
   const h = crypto.createHash('sha512');
@@ -46,7 +48,8 @@ const plugin = createUnplugin<PluginOpts>((opts = {}) => {
       return transformResult;
     },
     resolveId(id) {
-      if (id.endsWith(suffix)) return { id, external: opts.writeCSSFiles };
+      if (id.endsWith(suffix))
+        return { id, external: Boolean(opts.writeCSSFiles) };
     },
     async load(id) {
       // TODO: remove/disable load hook if writeCSSFiles is true?
@@ -60,14 +63,14 @@ if (import.meta.vitest) {
   const { test, expect } = import.meta.vitest;
   const { rollup } = await import('rollup');
 
-  test('rollup build with writeCSSFiles: true', async () => {
-    const inputCode = dedent`
-      const color = 'red'
-      el.classList.append(css\`
-        background: \${color}
-      \`)
-    `;
+  const inputCode = dedent`
+    const color = 'red'
+    el.classList.append(css\`
+      background: \${color}
+    \`)
+  `;
 
+  test('rollup build with writeCSSFiles: true', async () => {
     const virtualEntryName = 'virtual-entry';
     const virtualEntryPlugin: import('rollup').Plugin = {
       name: 'virtual-entry',
@@ -112,12 +115,6 @@ if (import.meta.vitest) {
     const { default: rollupPluginCssOnly } = await import(
       'rollup-plugin-css-only'
     );
-    const inputCode = dedent`
-      const color = 'red'
-      el.classList.append(css\`
-        background: \${color}
-      \`)
-    `;
 
     const virtualEntryName = 'virtual-entry';
     const virtualEntryPlugin: import('rollup').Plugin = {
@@ -161,5 +158,52 @@ if (import.meta.vitest) {
         },
       ]
     `);
+  });
+
+  test.only('esbuild', async () => {
+    const { build } = await import('esbuild');
+    const outDir = 'test-dist';
+    await fs.rm(outDir, { recursive: true, force: true });
+
+    const result = await build({
+      entryPoints: ['./fixtures/index.js'],
+      plugins: [plugin.esbuild()],
+      bundle: true,
+      format: 'esm',
+      outdir: outDir,
+      logLevel: 'silent',
+    });
+
+    expect(result.errors).toMatchInlineSnapshot('[]');
+
+    const outFileNames = await fs.readdir(outDir);
+    const outFiles = await Promise.all(
+      outFileNames.map(async (fileName) => ({
+        fileName,
+        code: await fs.readFile(path.join(outDir, fileName), 'utf8'),
+      })),
+    );
+
+    expect(outFiles).toMatchInlineSnapshot(`
+      [
+        {
+          "code": "/* severed:/home/caleb/Programming/calebeby/severed/packages/severed/fixtures/index.js.severed.css */
+      background: green; {
+      }
+      ",
+          "fileName": "index.css",
+        },
+        {
+          "code": "\\"use strict\\";
+
+      // fixtures/index.js
+      el.classList.add(\\".hi\\");
+      ",
+          "fileName": "index.js",
+        },
+      ]
+    `);
+
+    await fs.rm(outDir, { recursive: true });
   });
 }

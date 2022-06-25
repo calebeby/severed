@@ -7,12 +7,14 @@ importers:
       '@types/dedent': ^0.7.0
       '@types/estree': ^0.0.51
       '@types/rollup-plugin-css-only': ^3.1.0
+      '@types/stylis': ^4.0.2
       astray: ^1.1.1
       magic-string: ^0.26.2
       meriyah: ^4.2.1
       require-from-string: ^2.0.2
       rollup: ^2.75.7
       rollup-plugin-css-only: ^3.1.0
+      stylis: ^4.1.1
       unplugin: ^0.7.0
     dependencies:
       astray: 1.1.1
@@ -20,11 +22,13 @@ importers:
       meriyah: 4.2.1
       require-from-string: 2.0.2
       rollup: 2.75.7
+      stylis: 4.1.1
       unplugin: 0.7.0_rollup@2.75.7
     devDependencies:
       '@types/dedent': 0.7.0
       '@types/estree': 0.0.51
       '@types/rollup-plugin-css-only': 3.1.0
+      '@types/stylis': 4.0.2
       rollup-plugin-css-only: 3.1.0_rollup@2.75.7
 
 packages:
@@ -64,6 +68,10 @@ packages:
     dependencies:
       '@types/node': 18.0.0
       rollup: 0.63.5
+    dev: true
+
+  /@types/stylis/4.0.2:
+    resolution: {integrity: sha512-wtckGuk1eXUlUz0Qb1eXHG37Z7HWT2GfMdqRf8F/ifddTwadSS9Jwsqi4qtXk7cP7MtoyGVIHPElFCLc6HItbg==}
     dev: true
 
   /acorn/8.7.1:
@@ -223,6 +231,10 @@ packages:
 
   /sourcemap-codec/1.4.8:
     resolution: {integrity: sha512-9NykojV5Uih4lgo5So5dtw+f0JgJX30KCNI8gwhz2J9A15wD0Ml6tjHKwf6fTSa6fAdVBdZeNOs9eJ71qCk8vA==}
+    dev: false
+
+  /stylis/4.1.1:
+    resolution: {integrity: sha512-lVrM/bNdhVX2OgBFNa2YJ9Lxj7kPzylieHd3TNjuGE0Re9JB7joL5VUKOVH1kdNNJTgGPpT8hmwIAPLaSyEVFQ==}
     dev: false
 
   /to-regex-range/5.0.1:

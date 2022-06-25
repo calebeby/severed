@@ -3,6 +3,8 @@ import { createUnplugin } from 'unplugin';
 import { transform } from './transform-file.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as stylis from 'stylis';
+import * as crypto from 'crypto';
 
 const hash = (inputs: string[]) => {
   const h = crypto.createHash('sha512');
@@ -29,9 +31,14 @@ const plugin = createUnplugin<PluginOpts>((opts = {}) => {
       if (id.endsWith(suffix)) return;
       cssByFile.delete(id);
       let cssForThisFile = '';
-      const emitCSS = (css: string) => {
-        cssForThisFile += `\n\n${css}`;
-        return '.hi';
+      const emitCSS = (inputCSS: string) => {
+        const className = `severed-${hash([inputCSS]).slice(0, 7)}`;
+        const outputCSS = stylis.serialize(
+          stylis.compile(`.${className} {\n${inputCSS}\n}`),
+          stylis.middleware([stylis.namespace, stylis.stringify]),
+        );
+        cssForThisFile += `\n\n${outputCSS}`;
+        return className;
       };
       const transformResult = await transform(code, id, emitCSS);
 
@@ -95,16 +102,14 @@ if (import.meta.vitest) {
         {
           "code": "import 'virtual-entry.severed.css';
 
-      el.classList.append(\\".hi\\");
+      el.classList.append(\\"severed-18da80c\\");
       ",
           "fileName": "index.js",
         },
         {
           "code": "
 
-
-        background: red
-      ",
+      .severed-18da80c{background:red;}",
           "fileName": "virtual-entry.severed.css",
         },
       ]
@@ -144,23 +149,21 @@ if (import.meta.vitest) {
     expect(normalizedOutput).toMatchInlineSnapshot(`
       [
         {
-          "code": "el.classList.append(\\".hi\\");
+          "code": "el.classList.append(\\"severed-18da80c\\");
       ",
           "fileName": "index.js",
         },
         {
           "code": "
 
-
-        background: red
-      ",
+      .severed-18da80c{background:red;}",
           "fileName": "bundle.css",
         },
       ]
     `);
   });
 
-  test.only('esbuild', async () => {
+  test('esbuild', async () => {
     const { build } = await import('esbuild');
     const outDir = 'test-dist';
     await fs.rm(outDir, { recursive: true, force: true });
@@ -188,7 +191,8 @@ if (import.meta.vitest) {
       [
         {
           "code": "/* severed:/home/caleb/Programming/calebeby/severed/packages/severed/fixtures/index.js.severed.css */
-      background: green; {
+      .severed-d01cdb2 {
+        background: green;
       }
       ",
           "fileName": "index.css",
@@ -197,7 +201,7 @@ if (import.meta.vitest) {
           "code": "\\"use strict\\";
 
       // fixtures/index.js
-      el.classList.add(\\".hi\\");
+      el.classList.add(\\"severed-d01cdb2\\");
       ",
           "fileName": "index.js",
         },

@@ -28,9 +28,15 @@ const plugin = createUnplugin<PluginOpts>((opts = {}) => {
   return {
     name: 'severed',
     async transform(code, id) {
-      if (id.endsWith(suffix)) return;
+      // TODO: more exts?
+      if (!id.endsWith('.js') && !id.endsWith('.ts') && !id.endsWith('.tsx'))
+        return;
       cssByFile.delete(id);
       let cssForThisFile = '';
+      // @ts-expect-error
+      const resolve = this.resolve?.bind(this) as
+        | import('rollup').PluginContext['resolve']
+        | undefined;
       const emitCSS = (inputCSS: string) => {
         const className = `severed-${hash([inputCSS]).slice(0, 7)}`;
         const outputCSS = stylis.serialize(
@@ -40,31 +46,53 @@ const plugin = createUnplugin<PluginOpts>((opts = {}) => {
         cssForThisFile += `\n\n${outputCSS}`;
         return className;
       };
-      const transformResult = await transform(code, id, emitCSS);
+      const transformResult = await transform(
+        code,
+        id,
+        emitCSS,
+        opts.writeCSSFiles
+          ? () => id + suffix
+          : () =>
+              // Has to end with .css to be detected correctly by some bundlers
+              `${id}?severed=${hash([cssForThisFile]).slice(0, 5)}&lang.css`,
+        resolve,
+      );
 
-      const cssFileName = id + suffix;
-      cssByFile.set(cssFileName, cssForThisFile);
+      cssByFile.set(id, cssForThisFile);
       if (opts.writeCSSFiles) {
         this.emitFile({
           type: 'asset',
-          fileName: cssFileName,
+          fileName: id + suffix,
           source: cssForThisFile,
         });
       }
 
       return transformResult;
     },
-    resolveId(id) {
-      if (id.endsWith(suffix))
-        return { id, external: Boolean(opts.writeCSSFiles) };
+    async resolveId(id) {
+      if (opts.writeCSSFiles) {
+        if (id.endsWith(suffix)) {
+          return { id, external: true };
+        }
+      } else {
+        const params = new URLSearchParams(id.slice(id.indexOf('?')));
+        const severedParam = params.get('severed');
+        if (severedParam) return id;
+      }
     },
     async load(id) {
-      // TODO: remove/disable load hook if writeCSSFiles is true?
-      if (!id.endsWith(suffix)) return;
-      return cssByFile.get(id);
+      if (opts.writeCSSFiles) return;
+      const params = new URLSearchParams(id.slice(id.indexOf('?')));
+      const severedParam = params.get('severed');
+      const idWithoutParam = id.slice(0, id.indexOf('?'));
+      if (!severedParam) return;
+      const fallback = path.join(process.cwd(), idWithoutParam);
+      return cssByFile.get(idWithoutParam) || cssByFile.get(fallback);
     },
   };
 });
+
+export const { rollup, esbuild, vite } = plugin;
 
 if (import.meta.vitest) {
   const { test, expect } = import.meta.vitest;
@@ -78,7 +106,7 @@ if (import.meta.vitest) {
   `;
 
   test('rollup build with writeCSSFiles: true', async () => {
-    const virtualEntryName = 'virtual-entry';
+    const virtualEntryName = 'virtual-entry.js';
     const virtualEntryPlugin: import('rollup').Plugin = {
       name: 'virtual-entry',
       resolveId(id) {
@@ -100,7 +128,7 @@ if (import.meta.vitest) {
     expect(normalizedOutput).toMatchInlineSnapshot(`
       [
         {
-          "code": "import 'virtual-entry.severed.css';
+          "code": "import 'virtual-entry.js.severed.css';
 
       el.classList.append(\\"severed-18da80c\\");
       ",
@@ -110,7 +138,7 @@ if (import.meta.vitest) {
           "code": "
 
       .severed-18da80c{background:red;}",
-          "fileName": "virtual-entry.severed.css",
+          "fileName": "virtual-entry.js.severed.css",
         },
       ]
     `);
@@ -121,7 +149,7 @@ if (import.meta.vitest) {
       'rollup-plugin-css-only'
     );
 
-    const virtualEntryName = 'virtual-entry';
+    const virtualEntryName = 'virtual-entry.js';
     const virtualEntryPlugin: import('rollup').Plugin = {
       name: 'virtual-entry',
       resolveId(id) {
@@ -190,7 +218,7 @@ if (import.meta.vitest) {
     expect(outFiles).toMatchInlineSnapshot(`
       [
         {
-          "code": "/* severed:/home/caleb/Programming/calebeby/severed/packages/severed/fixtures/index.js.severed.css */
+          "code": "/* severed:/home/caleb/Programming/calebeby/severed/packages/severed/fixtures/index.js?severed=a96c0&lang.css */
       .severed-d01cdb2 {
         background: green;
       }

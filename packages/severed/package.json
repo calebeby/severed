@@ -2,9 +2,10 @@
   "name": "severed",
   "version": "0.0.0",
   "description": "",
-  "main": "index.js",
+  "exports": "./dist/index.js",
   "scripts": {
-    "build": "tsc --build",
+    "build": "tsc --build && esbuild --bundle ./index.ts --platform=node --format=esm --outdir=dist --external:rollup --external:unplugin --external:meriyah --external:require-from-string --define:'import.meta.vitest=false' --minify-syntax",
+    "build:watch": "esbuild --bundle ./index.ts --platform=node --format=esm --outdir=dist --external:rollup --external:unplugin --external:meriyah --external:require-from-string --define:'import.meta.vitest=false' --minify-syntax --watch",
     "test": "vitest"
   },
   "keywords": [],
@@ -24,6 +25,7 @@
     "@types/estree": "^0.0.51",
     "@types/rollup-plugin-css-only": "^3.1.0",
     "@types/stylis": "^4.0.2",
+    "esbuild": "^0.14.47",
     "rollup-plugin-css-only": "^3.1.0"
   },
   "type": "module"

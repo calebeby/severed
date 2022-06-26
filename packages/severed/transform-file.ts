@@ -1,4 +1,3 @@
-import { TransformResult } from 'unplugin';
 import { ESTreeMap, Path, walk } from 'astray';
 import MagicString, { SourceMap } from 'magic-string';
 import requireFromString from 'require-from-string';
@@ -96,26 +95,41 @@ export const transform = async (
   code: string,
   id: string,
   emitCSS: EmitCSS,
+  /** The filename for the CSS file to be imported */
+  makeCSSFileName: () => string,
+  resolve: import('rollup').PluginContext['resolve'] | undefined,
 ): Promise<null | { code: string; map: SourceMap }> => {
   const { code: stringForRollup, templateLiteralLocations } =
     modifyCodeForEvaluation(code);
   if (templateLiteralLocations.length === 0) return null;
   const stringForOutput = new MagicString(code);
-  const virtualPrefix = '\0virtual';
-  const entryName = `${virtualPrefix}:entry`;
-  const innerName = `${virtualPrefix}:inner`;
+  const virtualEntry = '\0severed-virtual';
   const build = await rollup.rollup({
-    input: innerName,
+    input: virtualEntry,
     plugins: [
       {
         name: 'virtual',
-        resolveId(id) {
-          if (id.startsWith(virtualPrefix))
-            return { id, moduleSideEffects: false };
+        async resolveId(id2, importer) {
+          if (id2 === virtualEntry)
+            return { id: id2, moduleSideEffects: false };
+          // TODO: test
+          const outerResolveResult = await resolve?.(
+            id2,
+            importer === virtualEntry ? id : id2,
+          );
+          if (outerResolveResult) {
+            const ext = path.extname(id2);
+            return {
+              id: outerResolveResult.id,
+              // TODO: more exts?
+              // TODO: test
+              external: ext === '.css',
+              moduleSideEffects: false,
+            };
+          }
         },
         load(id) {
-          if (id === entryName) return `export * from "${innerName}"`;
-          if (id === innerName) return stringForRollup;
+          if (id === virtualEntry) return stringForRollup;
         },
       },
     ],
@@ -123,7 +137,11 @@ export const transform = async (
       moduleSideEffects: false,
       preset: 'smallest',
     },
-    external: (id) => !id.startsWith(virtualPrefix) && /[^./]/g.test(id),
+    onwarn(warning) {
+      // TODO:
+      console.log('warning from roll', warning);
+    },
+    external: (id) => !id.startsWith(virtualEntry) && !/^[./]/g.test(id),
   });
   const { output } = await build.generate({
     format: 'cjs',
@@ -154,7 +172,7 @@ export const transform = async (
     }
   }
 
-  stringForOutput.prepend(`import "${id}.severed.css"\n`);
+  stringForOutput.prepend(`import "${makeCSSFileName()}"\n`);
 
   return {
     code: stringForOutput.toString(),
@@ -343,6 +361,8 @@ if (import.meta.vitest) {
       `);
     });
   });
+  const makeCSSFileName = () => 'css-filename.css';
+  const emptyResolver = async () => null;
 
   it('outputs with single css block', async () => {
     const inputCode = `
@@ -362,6 +382,8 @@ if (import.meta.vitest) {
       inputCode,
       path.join(__dirname, 'index.ts'),
       emitCSS,
+      makeCSSFileName,
+      emptyResolver,
     );
     expect(emitCSS).toHaveBeenCalledTimes(1);
     expect(emitCSS.mock.calls).toMatchInlineSnapshot(`
@@ -375,7 +397,7 @@ if (import.meta.vitest) {
     `);
     expect(result).toMatchInlineSnapshot(`
       {
-        "code": "import \\"/home/caleb/Programming/calebeby/severed/packages/severed/index.ts.severed.css\\"
+        "code": "import \\"css-filename.css\\"
 
             import * as esbuild from 'esbuild'
             let s = esbuild.foo
@@ -425,6 +447,8 @@ if (import.meta.vitest) {
       inputCode,
       path.join(__dirname, 'index.ts'),
       emitCSS,
+      makeCSSFileName,
+      emptyResolver,
     );
     expect(emitCSS).toHaveBeenCalledTimes(2);
     expect(emitCSS.mock.calls).toMatchInlineSnapshot(`
@@ -441,7 +465,7 @@ if (import.meta.vitest) {
     `);
     expect(result).toMatchInlineSnapshot(`
       {
-        "code": "import \\"/home/caleb/Programming/calebeby/severed/packages/severed/index.ts.severed.css\\"
+        "code": "import \\"css-filename.css\\"
 
             import * as esbuild from 'esbuild'
             let s = esbuild.foo
@@ -476,11 +500,15 @@ if (import.meta.vitest) {
         background: \${color}
       \`
     `;
-    const msg = await transform(input, 'asdf', () => '').catch(
-      (err) => err.message,
-    );
+    const msg = await transform(
+      input,
+      'input-filename',
+      () => '',
+      makeCSSFileName,
+      emptyResolver,
+    ).catch((err) => err.message);
     expect(msg).toMatchInlineSnapshot(
-      '"Failed to evaluate `asdf` while extracting css: color is not defined"',
+      '"Failed to evaluate `input-filename` while extracting css: color is not defined"',
     );
   });
 
@@ -497,13 +525,19 @@ if (import.meta.vitest) {
         background: \${color}
       \`
     `;
-    const result = await transform(input, 'asdf', (css) => {
-      expect(css.trim()).toEqual('background: red');
-      return 'className';
-    });
+    const result = await transform(
+      input,
+      'input-filename',
+      (css) => {
+        expect(css.trim()).toEqual('background: red');
+        return 'className';
+      },
+      makeCSSFileName,
+      emptyResolver,
+    );
     expect(result).toMatchInlineSnapshot(`
       {
-        "code": "import \\"asdf.severed.css\\"
+        "code": "import \\"css-filename.css\\"
       // These variables are not defined, but should be tree-shaken
       const foo1 = bar
       const foo2 = bar()

@@ -36,6 +36,7 @@ jobs:
         with:
           directory: ./packages/severed/coverage
           files: cobertura-coverage.xml
+          fail_ci_if_error: true
 
   build:
     runs-on: ubuntu-latest

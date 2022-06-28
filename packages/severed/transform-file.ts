@@ -1,4 +1,4 @@
-import { ESTreeMap, Path, walk } from 'astray';
+import * as astray from 'astray';
 import MagicString, { SourceMap } from 'magic-string';
 import requireFromString from 'require-from-string';
 import * as path from 'path';
@@ -25,7 +25,7 @@ interface EmitCSS {
 const exportPrefix = '__severed_css_';
 
 const findTopLevelStatement = (
-  node: Path<ESTreeMap, ESTreeMap[keyof ESTreeMap]>,
+  node: astray.Path<astray.ESTreeMap, astray.ESTreeMap[keyof astray.ESTreeMap]>,
 ) => {
   let ancestor = node;
   while (ancestor.path?.parent && ancestor.path.parent.type !== 'Program') {
@@ -40,7 +40,10 @@ const modifyCodeForEvaluation = (code: string) => {
   const stringForRollup = new MagicString(code);
   const templateLiteralLocations: [number, number][] = [];
   let i = 0;
-  walk(tree, {
+  /** Whether any CSS blocks in this file have interpolated values */
+  let hasDynamicCss = false;
+  const staticCssChunks: string[] = [];
+  astray.walk(tree, {
     ExportNamedDeclaration(node) {
       if (node.declaration) {
         // Export attached to a declaration, e.g. export const foo = bar();
@@ -50,12 +53,14 @@ const modifyCodeForEvaluation = (code: string) => {
         // No declaration, e.g. `export { foo }`
         // -> remove it so it can be tree-shaken before evaluation
         stringForRollup.remove(node.start, node.end);
+        return astray.SKIP;
       }
     },
     ExportAllDeclaration(node) {
       // export * from './foo' or export * as asdf from './foo'
       // -> remove it so it can be tree-shaken before evaluation
       stringForRollup.remove(node.start, node.end);
+      return astray.SKIP;
     },
     ExportDefaultDeclaration(node) {
       // Default export attached to a declaration, e.g. export default function foo() {}
@@ -63,31 +68,37 @@ const modifyCodeForEvaluation = (code: string) => {
       stringForRollup.remove(node.start, node.declaration.start);
     },
     TaggedTemplateExpression(node) {
-      if (node.tag.type === 'Identifier' && node.tag.name === importName) {
-        stringForRollup.overwrite(node.start, node.end, "'SEVERED_CSS_HERE'");
-        templateLiteralLocations.push([node.start, node.end]);
-        const nearestTopLevelStatement = findTopLevelStatement(node);
-        const targetLocation =
-          nearestTopLevelStatement?.start || tree.body[0].start;
-        stringForRollup.prependLeft(
-          targetLocation,
-          `export const ${exportPrefix}${i} = ${code.slice(
-            node.start + importName.length,
-            node.end,
-          )};\n`,
-        );
-        i++;
-      }
+      if (node.tag.type !== 'Identifier' || node.tag.name !== importName)
+        return;
+      stringForRollup.overwrite(node.start, node.end, "'SEVERED_CSS_HERE'");
+      templateLiteralLocations.push([node.start, node.end]);
+      const nearestTopLevelStatement = findTopLevelStatement(node);
+      const targetLocation =
+        nearestTopLevelStatement?.start || tree.body[0].start;
+      stringForRollup.prependLeft(
+        targetLocation,
+        `export const ${exportPrefix}${i} = ${code.slice(
+          node.start + importName.length,
+          node.end,
+        )};\n`,
+      );
+      if (node.quasi.expressions.length !== 0) hasDynamicCss = true;
+      else if (!hasDynamicCss)
+        staticCssChunks.push(node.quasi.quasis[0].value.raw);
+      i++;
     },
-    // Adds /* @__PURE__ */ annotations to all function calls so that rollup can remove them
+    // Adds PURE annotations to all function calls so that rollup can remove them
     // if their return values are not being used.
     CallExpression(node) {
       stringForRollup.prependLeft(node.start, '/* @__PURE__ */ ');
     },
   });
   return {
-    code: stringForRollup.toString(),
+    get code() {
+      return stringForRollup.toString();
+    },
     templateLiteralLocations,
+    allStaticChunks: hasDynamicCss ? (false as const) : staticCssChunks,
   };
 };
 
@@ -99,76 +110,93 @@ export const transform = async (
   makeCSSFileName: () => string,
   resolve: import('rollup').PluginContext['resolve'] | undefined,
 ): Promise<null | { code: string; map: SourceMap }> => {
-  const { code: stringForRollup, templateLiteralLocations } =
-    modifyCodeForEvaluation(code);
+  // TODO: check for import statement
+  const hasCss = code.includes('css`');
+  if (!hasCss) return null;
+
+  const modifiedCode = modifyCodeForEvaluation(code);
+  const { templateLiteralLocations, allStaticChunks } = modifiedCode;
   if (templateLiteralLocations.length === 0) return null;
   const stringForOutput = new MagicString(code);
-  const virtualEntry = '\0severed-virtual';
-  const build = await rollup.rollup({
-    input: virtualEntry,
-    plugins: [
-      {
-        name: 'virtual',
-        async resolveId(id2, importer) {
-          if (id2 === virtualEntry)
-            return { id: id2, moduleSideEffects: false };
-          // TODO: test
-          const outerResolveResult = await resolve?.(
-            id2,
-            importer === virtualEntry ? id : id2,
-          );
-          if (outerResolveResult) {
-            const ext = path.extname(id2);
-            return {
-              id: outerResolveResult.id,
-              // TODO: more exts?
-              // TODO: test
-              external: ext === '.css',
-              moduleSideEffects: false,
-            };
-          }
-        },
-        load(id) {
-          if (id === virtualEntry) return stringForRollup;
-        },
-      },
-    ],
-    treeshake: {
-      moduleSideEffects: false,
-      preset: 'smallest',
-    },
-    onwarn(warning) {
-      // TODO:
-      console.log('warning from roll', warning);
-    },
-    external: (id) => !id.startsWith(virtualEntry) && !/^[./]/g.test(id),
-  });
-  const { output } = await build.generate({
-    format: 'cjs',
-  });
-  const rollupOutputString = output[0].code;
-
-  let fileExports;
-  try {
-    fileExports = requireFromString(rollupOutputString, id);
-  } catch (error: any) {
-    throw new Error(
-      `Failed to evaluate \`${id}\` while extracting css: ${error.message}`,
-    );
-  }
-  for (const [exportName, css] of Object.entries(fileExports)) {
-    if (exportName.startsWith(exportPrefix)) {
-      const exportNum = Number(exportName.slice(exportPrefix.length));
-      if (typeof css !== 'string')
-        throw new Error('expected css to evaluate to string');
+  if (allStaticChunks) {
+    for (const [exportNum, css] of allStaticChunks.entries()) {
       const className = emitCSS(css);
-
       const originalLocation = templateLiteralLocations[exportNum];
       stringForOutput.overwrite(
         originalLocation[0],
         originalLocation[1],
         JSON.stringify(className),
       );
+    }
+  } else {
+    const virtualEntry = '\0severed-virtual';
+    // TODO: skip rollup/eval if there are no css strings with interpolated stuffs
+    const build = await rollup.rollup({
+      input: virtualEntry,
+      plugins: [
+        {
+          name: 'virtual',
+          async resolveId(id2, importer) {
+            if (id2 === virtualEntry)
+              return { id: id2, moduleSideEffects: false };
+            // TODO: test
+            const outerResolveResult = await resolve?.(
+              id2,
+              importer === virtualEntry ? id : id2,
+            );
+            if (outerResolveResult) {
+              const ext = path.extname(id2);
+              return {
+                id: outerResolveResult.id,
+                // TODO: more exts?
+                // TODO: test
+                external: ext === '.css',
+                moduleSideEffects: false,
+              };
+            }
+          },
+          load(id) {
+            if (id === virtualEntry) return modifiedCode.code;
+          },
+        },
+      ],
+      treeshake: {
+        moduleSideEffects: false,
+        preset: 'smallest',
+      },
+      onwarn(warning) {
+        // TODO:
+        console.log('warning from roll', warning);
+      },
+      external: (id) => !id.startsWith(virtualEntry) && !/^[./]/g.test(id),
+    });
+    const { output } = await build.generate({
+      format: 'cjs',
+    });
+    const rollupOutputString = output[0].code;
+
+    let fileExports;
+    try {
+      fileExports = requireFromString(rollupOutputString, id);
+    } catch (error: any) {
+      throw new Error(
+        `Failed to evaluate \`${id}\` while extracting css: ${error.message}`,
+      );
+    }
+    for (const [exportName, css] of Object.entries(fileExports)) {
+      if (exportName.startsWith(exportPrefix)) {
+        const exportNum = Number(exportName.slice(exportPrefix.length));
+        if (typeof css !== 'string')
+          throw new Error('expected css to evaluate to string');
+        const className = emitCSS(css);
+
+        const originalLocation = templateLiteralLocations[exportNum];
+        stringForOutput.overwrite(
+          originalLocation[0],
+          originalLocation[1],
+          JSON.stringify(className),
+        );
+      }
     }
   }
 
@@ -219,6 +247,7 @@ if (import.meta.vitest) {
         console.log('hi')
       `;
       const modified = modifyCodeForEvaluation(input);
+      expect(modified.allStaticChunks).toStrictEqual([]);
       expect(modified.code).toMatchInlineSnapshot(
         '"/* @__PURE__ */ console.log(\'hi\')"',
       );
@@ -234,6 +263,7 @@ if (import.meta.vitest) {
         \`
       `;
       const modified = modifyCodeForEvaluation(input);
+      expect(modified.allStaticChunks).toBe(false);
       expect(modified.code).toMatchInlineSnapshot(`
         "export const __severed_css_0 = \`foo\`;
         'SEVERED_CSS_HERE';
@@ -262,6 +292,10 @@ if (import.meta.vitest) {
         }
       `;
       const modified = modifyCodeForEvaluation(input);
+      expect(modified.allStaticChunks).toStrictEqual([
+        'asdf',
+        'background: red',
+      ]);
       expect(modified.code).toMatchInlineSnapshot(`
         "export const __severed_css_0 = \`asdf\`;
         /* @__PURE__ */ console.log('SEVERED_CSS_HERE')
@@ -306,6 +340,7 @@ if (import.meta.vitest) {
         }
       `;
       const modified = modifyCodeForEvaluation(input);
+      expect(modified.allStaticChunks).toStrictEqual(['some_css', 'asdf']);
       expect(modified.code).toMatchInlineSnapshot(`
         "const remove_me = /* @__PURE__ */ hi();
         export const __severed_css_0 = \`some_css\`;
@@ -343,6 +378,7 @@ if (import.meta.vitest) {
         \`
       `;
       const modified = modifyCodeForEvaluation(input);
+      expect(modified.allStaticChunks).toBe(false);
       expect(modified.code).toMatchInlineSnapshot(`
         "const foo = /* @__PURE__ */ localStorage.getItem('blah')
 
@@ -364,6 +400,59 @@ if (import.meta.vitest) {
   const makeCSSFileName = () => 'css-filename.css';
   const emptyResolver = async () => null;
 
+  it('works when all css blocks are static', async () => {
+    const inputCode = `
+      const a = css\`one two three\`
+      const b = css\`two three four\`
+      console.log(b)
+    `;
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+    let i = 1;
+    const emitCSS = vi.fn(((_css) => {
+      return `.fake-className-${i++}`;
+    }) as EmitCSS);
+    const result = await transform(
+      inputCode,
+      path.join(__dirname, 'index.ts'),
+      emitCSS,
+      makeCSSFileName,
+      emptyResolver,
+    );
+    expect(emitCSS).toHaveBeenCalledTimes(2);
+    expect(emitCSS.mock.calls).toMatchInlineSnapshot(`
+      [
+        [
+          "one two three",
+        ],
+        [
+          "two three four",
+        ],
+      ]
+    `);
+    expect(result).toMatchInlineSnapshot(`
+      {
+        "code": "import \\"css-filename.css\\"
+
+            const a = \\".fake-className-1\\"
+            const b = \\".fake-className-2\\"
+            console.log(b)
+          ",
+        "map": SourceMap {
+          "file": null,
+          "mappings": ";AAAA;AACA,gBAAgB,mBAAkB;AAClC,gBAAgB,mBAAmB;AACnC;AACA",
+          "names": [],
+          "sources": [
+            null,
+          ],
+          "sourcesContent": [
+            null,
+          ],
+          "version": 3,
+        },
+      }
+    `);
+  });
   it('outputs with single css block', async () => {
     const inputCode = `
       import * as esbuild from 'esbuild'

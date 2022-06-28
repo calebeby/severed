@@ -57,6 +57,7 @@ const plugin = createUnplugin<PluginOpts>((opts = {}) => {
               `${id}?severed=${hash([cssForThisFile]).slice(0, 5)}&lang.css`,
         resolve,
       );
+      if (!transformResult) return null;
 
       cssByFile.set(id, cssForThisFile);
       if (opts.writeCSSFiles) {

@@ -1,2 +1,3 @@
-dist
-test-dist
+dist/
+test-dist/
+coverage/

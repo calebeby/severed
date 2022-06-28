@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "build": "pnpm run -r build",
-    "test": "pnpm run -r test"
+    "test": "pnpm run -r test",
+    "test:cov": "pnpm run -r test --coverage"
   },
   "author": "Caleb Eby",
   "license": "MIT",
@@ -13,6 +14,7 @@
     "semi": true
   },
   "devDependencies": {
+    "c8": "^7.11.3",
     "prettier": "^2.7.1",
     "severed": "workspace:^0.0.0",
     "typescript": "^4.7.4",

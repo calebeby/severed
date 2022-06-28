@@ -16,6 +16,7 @@ jobs:
       - uses: codecov/codecov-action@v2
         with:
           directory: ./packages/severed/coverage
+          files: cobertura-coverage.xml
 
   build:
     runs-on: ubuntu-latest

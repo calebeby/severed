@@ -5,6 +5,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as stylis from 'stylis';
 import * as crypto from 'crypto';
+import { fileURLToPath } from 'url';
 
 const hash = (inputs: string[]) => {
   const h = crypto.createHash('sha512');
@@ -212,14 +213,19 @@ if (import.meta.vitest) {
     const outFiles = await Promise.all(
       outFileNames.map(async (fileName) => ({
         fileName,
-        code: await fs.readFile(path.join(outDir, fileName), 'utf8'),
+        code: (
+          await fs.readFile(path.join(outDir, fileName), 'utf8')
+        ).replace(
+          new RegExp(path.dirname(fileURLToPath(import.meta.url)), 'g'),
+          '<root>',
+        ),
       })),
     );
 
     expect(outFiles).toMatchInlineSnapshot(`
       [
         {
-          "code": "/* severed:/home/caleb/Programming/calebeby/severed/packages/severed/fixtures/index.js?severed=a96c0&lang.css */
+          "code": "/* severed:<root>/fixtures/index.js?severed=a96c0&lang.css */
       .severed-d01cdb2 {
         background: green;
       }

@@ -1,11 +1,12 @@
 import { test } from 'vitest';
 import * as rollup from 'rollup';
+import * as esbuild from 'esbuild';
 import { expect } from 'vitest';
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
-import { rollupPlugin } from 'severed';
+import { rollupPlugin, esbuildPlugin } from 'severed';
 import rollupPluginCSSOnly from 'rollup-plugin-css-only';
 
 const cwd = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +19,22 @@ const makeRollupFixture = async (
   await fs.rm(outDir, { recursive: true, force: true });
   const build = await rollup.rollup(config);
   await build.write({ dir: outDir });
+  return outDir;
+};
+
+const makeEsbuildFixture = async (
+  name: string,
+  config: esbuild.BuildOptions,
+) => {
+  const outDir = path.join(cwd, `dist-${name}`);
+  await fs.rm(outDir, { recursive: true, force: true });
+  const result = await esbuild.build({
+    logLevel: 'silent',
+    outdir: outDir,
+    ...config,
+  });
+  expect(result.errors).toHaveLength(0);
+  expect(result.warnings).toHaveLength(0);
   return outDir;
 };
 
@@ -117,6 +134,31 @@ test('rollup output with default settings and rollup-plugin-css-only', async () 
     file index.js {
       const className = "severed-d01cdb2";
       
+      el.classList.add(className);
+    }
+  `);
+});
+
+test('esbuild output with default settings', async () => {
+  const outDir = await makeEsbuildFixture('esbuild-default', {
+    entryPoints: [path.join(cwd, 'input', 'index.js')],
+    plugins: [esbuildPlugin()],
+    bundle: true,
+    format: 'esm',
+  });
+
+  expect(await dirSnapshot(outDir)).toMatchInlineSnapshot(`
+    file index.css {
+      /* severed:/home/caleb/Programming/calebeby/severed/packages/severed/fixtures/basic/input/index.js?severed=a96c0&lang.css */
+      .severed-d01cdb2 {
+        background: green;
+      }
+    }
+    file index.js {
+      "use strict";
+      
+      // fixtures/basic/input/index.js
+      var className = "severed-d01cdb2";
       el.classList.add(className);
     }
   `);

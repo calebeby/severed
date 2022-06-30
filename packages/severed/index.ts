@@ -89,7 +89,7 @@ const plugin = createUnplugin<PluginOpts>((opts = {}) => {
       const idWithoutParam = id.slice(0, id.indexOf('?'));
       if (!severedParam) return;
       const fallback = path.join(process.cwd(), idWithoutParam);
-      return cssByFile.get(idWithoutParam) || cssByFile.get(fallback);
+      return cssByFile.get(idWithoutParam);
     },
   };
 });

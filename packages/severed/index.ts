@@ -1,11 +1,8 @@
-import { dedent } from './dedent.js';
 import { createUnplugin } from 'unplugin';
 import { transform } from './transform-file.js';
-import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as stylis from 'stylis';
 import * as crypto from 'crypto';
-import { fileURLToPath } from 'url';
 
 const hash = (inputs: string[]) => {
   const h = crypto.createHash('sha512');

@@ -38,6 +38,7 @@ const dedent: Dedent = (stringsOrOptions, ...values) => {
   const renderedArray = _dedentArray(strings);
 
   if (values.length === 0) return renderedArray[0];
+  /* c8 ignore next */
   throw new Error('does not support interpolation');
 };
 

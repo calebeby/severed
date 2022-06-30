@@ -6,6 +6,7 @@ import * as fsSync from 'fs';
 import { fileURLToPath } from 'url';
 import * as path from 'path';
 import { rollupPlugin } from 'severed';
+import rollupPluginCSSOnly from 'rollup-plugin-css-only';
 
 const cwd = path.dirname(fileURLToPath(import.meta.url));
 
@@ -72,7 +73,7 @@ test('rollup output without plugin', async () => {
   `);
 });
 
-test('rollup output with writeCSSFiles', async () => {
+test('rollup output with writeCSSFiles: true', async () => {
   const outDir = await makeRollupFixture('rollup-writeCSSFiles', {
     input: path.join(cwd, 'input', 'index.js'),
     plugins: [rollupPlugin({ writeCSSFiles: true })],
@@ -85,6 +86,35 @@ test('rollup output with writeCSSFiles', async () => {
     file index.js {
       import './fixtures-basic-input-index-js.severed.css';
       
+      const className = "severed-d01cdb2";
+      
+      el.classList.add(className);
+    }
+  `);
+});
+
+test('rollup output with default settings and no css plugin', async () => {
+  const error = await makeRollupFixture('rollup-writeCSSFiles', {
+    input: path.join(cwd, 'input', 'index.js'),
+    plugins: [rollupPlugin()],
+  }).catch((error) => error);
+
+  expect(error).toMatchInlineSnapshot(
+    '[Error: Unexpected token (Note that you need plugins to import files that are not JavaScript)]',
+  );
+});
+
+test('rollup output with default settings and rollup-plugin-css-only', async () => {
+  const outDir = await makeRollupFixture('rollup-writeCSSFiles', {
+    input: path.join(cwd, 'input', 'index.js'),
+    plugins: [rollupPlugin(), rollupPluginCSSOnly() as any],
+  });
+
+  expect(await dirSnapshot(outDir)).toMatchInlineSnapshot(`
+    file bundle.css {
+      .severed-d01cdb2{background:green;}
+    }
+    file index.js {
       const className = "severed-d01cdb2";
       
       el.classList.add(className);

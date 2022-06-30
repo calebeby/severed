@@ -32,28 +32,13 @@ function _dedentArray(strings: ReadonlyArray<string>) {
   return dedentedStrings;
 }
 
-function concatStringsAndValues(
-  strings: ReadonlyArray<string>,
-  values: ReadonlyArray<any>,
-): string {
-  let ret = '';
-  for (let i = 0, l = strings.length; i < l; i++) {
-    ret += strings[i];
-    if (i < l - 1) {
-      ret += values[i];
-    }
-  }
-  return ret;
-}
-
 const dedent: Dedent = (stringsOrOptions, ...values) => {
   const strings = stringsOrOptions;
 
   const renderedArray = _dedentArray(strings);
 
   if (values.length === 0) return renderedArray[0];
-
-  return concatStringsAndValues(renderedArray, values);
+  throw new Error('does not support interpolation');
 };
 
 export interface Dedent {

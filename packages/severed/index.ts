@@ -47,12 +47,15 @@ const plugin = createUnplugin<PluginOpts>((opts = {}) => {
         cssForThisFile += `\n\n${outputCSS}`;
         return className;
       };
+      // If opts.writeCSSFiles is used, the filename in the output folder
+      const distFileName =
+        path.relative(process.cwd(), id).replace(/[^a-zA-Z]+/g, '-') + suffix;
       const transformResult = await transform(
         code,
         id,
         emitCSS,
         opts.writeCSSFiles
-          ? () => id + suffix
+          ? () => `./${distFileName}`
           : () =>
               // Has to end with .css to be detected correctly by some bundlers
               `${id}?severed=${hash([cssForThisFile]).slice(0, 5)}&lang.css`,
@@ -64,7 +67,7 @@ const plugin = createUnplugin<PluginOpts>((opts = {}) => {
       if (opts.writeCSSFiles) {
         this.emitFile({
           type: 'asset',
-          fileName: id + suffix,
+          fileName: distFileName,
           source: cssForThisFile,
         });
       }
@@ -94,155 +97,6 @@ const plugin = createUnplugin<PluginOpts>((opts = {}) => {
   };
 });
 
-export const { rollup, esbuild, vite } = plugin;
-
-if (import.meta.vitest) {
-  const { test, expect } = import.meta.vitest;
-  const { rollup } = await import('rollup');
-
-  const inputCode = dedent`
-    const color = 'red'
-    el.classList.append(css\`
-      background: \${color}
-    \`)
-  `;
-
-  test('rollup build with writeCSSFiles: true', async () => {
-    const virtualEntryName = 'virtual-entry.js';
-    const virtualEntryPlugin: import('rollup').Plugin = {
-      name: 'virtual-entry',
-      resolveId(id) {
-        if (id === virtualEntryName) return id;
-      },
-      load(id) {
-        if (id === virtualEntryName) return inputCode;
-      },
-    };
-    const build = await rollup({
-      input: { index: virtualEntryName },
-      plugins: [virtualEntryPlugin, plugin.rollup({ writeCSSFiles: true })],
-    });
-    const output = await build.generate({});
-    const normalizedOutput = output.output.map((file) => ({
-      fileName: file.fileName,
-      code: file.type === 'asset' ? file.source : file.code,
-    }));
-    expect(normalizedOutput).toMatchInlineSnapshot(`
-      [
-        {
-          "code": "import 'virtual-entry.js.severed.css';
-
-      el.classList.append(\\"severed-18da80c\\");
-      ",
-          "fileName": "index.js",
-        },
-        {
-          "code": "
-
-      .severed-18da80c{background:red;}",
-          "fileName": "virtual-entry.js.severed.css",
-        },
-      ]
-    `);
-  });
-
-  test('rollup build with rollup-plugin-css-only', async () => {
-    const { default: rollupPluginCssOnly } = await import(
-      'rollup-plugin-css-only'
-    );
-
-    const virtualEntryName = 'virtual-entry.js';
-    const virtualEntryPlugin: import('rollup').Plugin = {
-      name: 'virtual-entry',
-      resolveId(id) {
-        if (id === virtualEntryName) return id;
-      },
-      load(id) {
-        if (id === virtualEntryName) return inputCode;
-      },
-    };
-    const build = await rollup({
-      input: { index: virtualEntryName },
-      plugins: [
-        virtualEntryPlugin,
-        plugin.rollup(),
-        rollupPluginCssOnly({
-          output: true,
-        }) as any,
-      ],
-    });
-    const output = await build.generate({});
-    const normalizedOutput = output.output.map((file) => ({
-      fileName: file.fileName,
-      code: file.type === 'asset' ? file.source : file.code,
-    }));
-    expect(normalizedOutput).toMatchInlineSnapshot(`
-      [
-        {
-          "code": "el.classList.append(\\"severed-18da80c\\");
-      ",
-          "fileName": "index.js",
-        },
-        {
-          "code": "
-
-      .severed-18da80c{background:red;}",
-          "fileName": "bundle.css",
-        },
-      ]
-    `);
-  });
-
-  test('esbuild', async () => {
-    const { build } = await import('esbuild');
-    const outDir = 'test-dist';
-    await fs.rm(outDir, { recursive: true, force: true });
-
-    const result = await build({
-      entryPoints: ['./fixtures/index.js'],
-      plugins: [plugin.esbuild()],
-      bundle: true,
-      format: 'esm',
-      outdir: outDir,
-      logLevel: 'silent',
-    });
-
-    expect(result.errors).toMatchInlineSnapshot('[]');
-
-    const outFileNames = await fs.readdir(outDir);
-    const outFiles = await Promise.all(
-      outFileNames.map(async (fileName) => ({
-        fileName,
-        code: (
-          await fs.readFile(path.join(outDir, fileName), 'utf8')
-        ).replace(
-          new RegExp(path.dirname(fileURLToPath(import.meta.url)), 'g'),
-          '<root>',
-        ),
-      })),
-    );
-
-    expect(outFiles).toMatchInlineSnapshot(`
-      [
-        {
-          "code": "/* severed:<root>/fixtures/index.js?severed=a96c0&lang.css */
-      .severed-d01cdb2 {
-        background: green;
-      }
-      ",
-          "fileName": "index.css",
-        },
-        {
-          "code": "\\"use strict\\";
-
-      // fixtures/index.js
-      el.classList.add(\\"severed-d01cdb2\\");
-      ",
-          "fileName": "index.js",
-        },
-      ]
-    `);
-
-    await fs.rm(outDir, { recursive: true });
-  });
-}
+export const rollupPlugin = plugin.rollup;
+export const esbuildPlugin = plugin.esbuild;
+export const vitePlugin = plugin.vite;

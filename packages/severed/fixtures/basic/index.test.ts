@@ -121,6 +121,12 @@ test('rollup output with default settings and no css plugin', async () => {
   expect(error).toMatchInlineSnapshot(
     '[Error: Unexpected token (Note that you need plugins to import files that are not JavaScript)]',
   );
+  expect(error.frame).toMatchInlineSnapshot(`
+    "1: 
+    2: 
+    3: .severed-d01cdb2{background:green;}
+       ^"
+  `);
 });
 
 test('rollup output with default settings and rollup-plugin-css-only', async () => {

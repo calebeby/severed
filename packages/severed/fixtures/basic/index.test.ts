@@ -57,7 +57,9 @@ const dirSnapshot = async (dirName: string): Promise<{ str: string }> => {
     } else {
       output.push(
         `file ${basename} {\n${indent(
-          (await fs.readFile(fullPath, 'utf8')).trim(),
+          (await fs.readFile(fullPath, 'utf8'))
+            .trim()
+            .replace(new RegExp(process.cwd(), 'g'), '<cwd>'),
         )}\n}`,
       );
     }
@@ -149,7 +151,7 @@ test('esbuild output with default settings', async () => {
 
   expect(await dirSnapshot(outDir)).toMatchInlineSnapshot(`
     file index.css {
-      /* severed:/home/caleb/Programming/calebeby/severed/packages/severed/fixtures/basic/input/index.js?severed=a96c0&lang.css */
+      /* severed:<cwd>/fixtures/basic/input/index.js?severed=a96c0&lang.css */
       .severed-d01cdb2 {
         background: green;
       }

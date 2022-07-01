@@ -108,4 +108,25 @@ test('esbuild output with default settings', async () => {
   `);
 });
 
-// TODO: esbuild with writeCSSFiles: true
+test('esbuild output with writeCSSFiles: true', async () => {
+  const outDir = await makeEsbuildFixture(cwd, 'esbuild-writeCSSFiles', {
+    entryPoints: [path.join(cwd, 'input', 'index.js')],
+    plugins: [esbuildPlugin({ writeCSSFiles: true })],
+    bundle: true,
+    format: 'esm',
+  });
+
+  expect(await dirSnapshot(outDir)).toMatchInlineSnapshot(`
+    file fixtures-basic-input-index-js.severed.css {
+      .severed-d01cdb2{background:green;}
+    }
+    file index.js {
+      "use strict";
+      
+      // fixtures/basic/input/index.js
+      import "./fixtures-basic-input-index-js.severed.css";
+      var className = "severed-d01cdb2";
+      el.classList.add(className);
+    }
+  `);
+});

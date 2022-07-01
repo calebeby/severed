@@ -233,3 +233,41 @@ test('esbuild output with default settings', async () => {
     }
   `);
 });
+
+test('esbuild output with writeCSSFiles: true', async () => {
+  const outDir = await makeEsbuildFixture(cwd, 'esbuild-writeCSSFiles', {
+    entryPoints: [path.join(cwd, 'input', 'index.js')],
+    plugins: [esbuildPlugin({ writeCSSFiles: true })],
+    bundle: true,
+    format: 'esm',
+  });
+
+  expect(await dirSnapshot(outDir)).toMatchInlineSnapshot(`
+    file fixtures-multiple-files-with-and-without-css-input-index-js.severed.css {
+      .severed-91d2b32{background:#0f0;}
+    }
+    file fixtures-multiple-files-with-and-without-css-input-second-ts.severed.css {
+      .severed-aa4121a{color:#f0f;}
+    }
+    file index.js {
+      "use strict";
+      
+      // fixtures/multiple-files-with-and-without-css/input/index.js
+      import "./fixtures-multiple-files-with-and-without-css-input-index-js.severed.css";
+      
+      // fixtures/multiple-files-with-and-without-css/input/second.ts
+      import "./fixtures-multiple-files-with-and-without-css-input-second-ts.severed.css";
+      var foo = (el2) => {
+        el2.classList.add("severed-aa4121a");
+      };
+      
+      // fixtures/multiple-files-with-and-without-css/input/colors.ts
+      var f = doesNotExist;
+      
+      // fixtures/multiple-files-with-and-without-css/input/index.js
+      var className = "severed-91d2b32";
+      el.classList.add(className);
+      foo(el);
+    }
+  `);
+});

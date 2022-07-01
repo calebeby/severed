@@ -90,7 +90,9 @@ const modifyCodeForEvaluation = (code: string) => {
     // Adds PURE annotations to all function calls so that rollup can remove them
     // if their return values are not being used.
     CallExpression(node) {
-      stringForRollup.prependLeft(node.start, '/* @__PURE__ */ ');
+      try {
+        stringForRollup.prependLeft(node.start, '/* @__PURE__ */ ');
+      } catch {}
     },
   });
   return {
@@ -104,11 +106,11 @@ const modifyCodeForEvaluation = (code: string) => {
 
 export const transform = async (
   code: string,
-  id: string,
+  topFileId: string,
   emitCSS: EmitCSS,
   /** The filename for the CSS file to be imported */
   makeCSSFileName: () => string,
-  resolve: import('rollup').PluginContext['resolve'] | undefined,
+  otherPlugins: import('rollup').Plugin[] | undefined,
 ): Promise<null | { code: string; map: SourceMap }> => {
   // TODO: check for import statement
   const hasCss = code.includes('css`');
@@ -130,30 +132,32 @@ export const transform = async (
     }
   } else {
     const virtualEntry = '\0severed-virtual';
-    // TODO: skip rollup/eval if there are no css strings with interpolated stuffs
     const build = await rollup.rollup({
       input: virtualEntry,
       plugins: [
+        ...(otherPlugins || []),
         {
           name: 'virtual',
-          async resolveId(id2, importer) {
-            if (id2 === virtualEntry)
-              return { id: id2, moduleSideEffects: false };
-            // TODO: test
-            const outerResolveResult = await resolve?.(
-              id2,
-              importer === virtualEntry ? id : id2,
-            );
-            if (outerResolveResult) {
-              const ext = path.extname(id2);
-              return {
-                id: outerResolveResult.id,
-                // TODO: more exts?
-                // TODO: test
-                external: ext === '.css',
-                moduleSideEffects: false,
-              };
+          async resolveId(id, importer) {
+            if (id === virtualEntry)
+              return { id: id, moduleSideEffects: false };
+            if (importer === virtualEntry) {
+              return this.resolve(id, topFileId, { skipSelf: true });
             }
+            // const outerResolveResult = await resolve?.(
+            //   id2,
+            //   importer === virtualEntry ? id : importer,
+            // );
+            // if (outerResolveResult) {
+            //   const ext = path.extname(id2);
+            //   return {
+            //     id: outerResolveResult.id,
+            //     // TODO: more exts?
+            //     // TODO: test
+            //     external: ext === '.css',
+            //     moduleSideEffects: false,
+            //   };
+            // }
           },
           load(id) {
             if (id === virtualEntry) return modifiedCode.code;
@@ -164,10 +168,6 @@ export const transform = async (
         moduleSideEffects: false,
         preset: 'smallest',
       },
-      onwarn(warning) {
-        // TODO:
-        console.log('warning from roll', warning);
-      },
       external: (id) => !id.startsWith(virtualEntry) && !/^[./]/g.test(id),
     });
     const { output } = await build.generate({
@@ -177,10 +177,10 @@ export const transform = async (
 
     let fileExports;
     try {
-      fileExports = requireFromString(rollupOutputString, id);
+      fileExports = requireFromString(rollupOutputString, topFileId);
     } catch (error: any) {
       throw new Error(
-        `Failed to evaluate \`${id}\` while extracting css: ${error.message}`,
+        `Failed to evaluate \`${topFileId}\` while extracting css: ${error.message}`,
       );
     }
     for (const [exportName, css] of Object.entries(fileExports)) {
@@ -398,7 +398,6 @@ if (import.meta.vitest) {
     });
   });
   const makeCSSFileName = () => 'css-filename.css';
-  const emptyResolver = async () => null;
 
   it('works when all css blocks are static', async () => {
     const inputCode = `
@@ -417,7 +416,7 @@ if (import.meta.vitest) {
       path.join(__dirname, 'index.ts'),
       emitCSS,
       makeCSSFileName,
-      emptyResolver,
+      [],
     );
     expect(emitCSS).toHaveBeenCalledTimes(2);
     expect(emitCSS.mock.calls).toMatchInlineSnapshot(`
@@ -472,7 +471,7 @@ if (import.meta.vitest) {
       path.join(__dirname, 'index.ts'),
       emitCSS,
       makeCSSFileName,
-      emptyResolver,
+      [],
     );
     expect(emitCSS).toHaveBeenCalledTimes(1);
     expect(emitCSS.mock.calls).toMatchInlineSnapshot(`
@@ -537,7 +536,7 @@ if (import.meta.vitest) {
       path.join(__dirname, 'index.ts'),
       emitCSS,
       makeCSSFileName,
-      emptyResolver,
+      [],
     );
     expect(emitCSS).toHaveBeenCalledTimes(2);
     expect(emitCSS.mock.calls).toMatchInlineSnapshot(`
@@ -594,7 +593,7 @@ if (import.meta.vitest) {
       'input-filename',
       () => '',
       makeCSSFileName,
-      emptyResolver,
+      [],
     ).catch((err) => err.message);
     expect(msg).toMatchInlineSnapshot(
       '"Failed to evaluate `input-filename` while extracting css: color is not defined"',
@@ -622,7 +621,7 @@ if (import.meta.vitest) {
         return 'className';
       },
       makeCSSFileName,
-      emptyResolver,
+      [],
     );
     expect(result).toMatchInlineSnapshot(`
       {

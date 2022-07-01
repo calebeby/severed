@@ -1,5 +1,6 @@
 {
   "include": ["*.ts", "**/*.ts"],
+  "exclude": ["./fixtures/*/**"],
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "paths": {
@@ -7,7 +8,10 @@
       "meriyah": ["./node_modules/meriyah/dist/src/meriyah.d.ts"],
       "estree": ["./node_modules/@types/estree/index.d.ts"],
       "magic-string-original-types": ["./node_modules/magic-string/index.d.ts"],
-      "severed": ["./index.ts"]
+      "severed": ["./index.ts"],
+      "@rollup/plugin-node-resolve": [
+        "./node_modules/@rollup/plugin-node-resolve/types/index.d.ts"
+      ]
     }
   }
 }

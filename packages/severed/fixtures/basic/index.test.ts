@@ -1,83 +1,19 @@
-import { test } from 'vitest';
-import * as rollup from 'rollup';
-import * as esbuild from 'esbuild';
-import { expect } from 'vitest';
-import * as fs from 'fs/promises';
-import * as fsSync from 'fs';
-import { fileURLToPath } from 'url';
+import { expect, test } from 'vitest';
+
 import * as path from 'path';
 import { rollupPlugin, esbuildPlugin } from 'severed';
 import rollupPluginCSSOnly from 'rollup-plugin-css-only';
+import { fileURLToPath } from 'url';
+import {
+  dirSnapshot,
+  makeEsbuildFixture,
+  makeRollupFixture,
+} from '../test-utils.js';
 
 const cwd = path.dirname(fileURLToPath(import.meta.url));
 
-const makeRollupFixture = async (
-  name: string,
-  config: rollup.RollupOptions,
-) => {
-  const outDir = path.join(cwd, `dist-${name}`);
-  await fs.rm(outDir, { recursive: true, force: true });
-  const build = await rollup.rollup(config);
-  await build.write({ dir: outDir });
-  return outDir;
-};
-
-const makeEsbuildFixture = async (
-  name: string,
-  config: esbuild.BuildOptions,
-) => {
-  const outDir = path.join(cwd, `dist-${name}`);
-  await fs.rm(outDir, { recursive: true, force: true });
-  const result = await esbuild.build({
-    logLevel: 'silent',
-    outdir: outDir,
-    ...config,
-  });
-  expect(result.errors).toHaveLength(0);
-  expect(result.warnings).toHaveLength(0);
-  return outDir;
-};
-
-const indent = (text: string) =>
-  text
-    .split('\n')
-    .map((l) => `  ${l}`)
-    .join('\n');
-
-const dirSnapshot = async (dirName: string): Promise<{ str: string }> => {
-  const paths = await fs.readdir(dirName);
-  let output = [];
-  for (const basename of paths) {
-    const fullPath = path.join(dirName, basename);
-    const f = fsSync.statSync(fullPath);
-    if (f.isDirectory()) {
-      output.push(
-        `folder ${basename} {\n${indent((await dirSnapshot(fullPath)).str)}\n}`,
-      );
-    } else {
-      output.push(
-        `file ${basename} {\n${indent(
-          (await fs.readFile(fullPath, 'utf8'))
-            .trim()
-            .replace(new RegExp(process.cwd(), 'g'), '<cwd>'),
-        )}\n}`,
-      );
-    }
-  }
-  return { str: output.join('\n'), [dirSnapshotSymbol]: true } as any;
-};
-
-const dirSnapshotSymbol = Symbol('dirSnapshot');
-
-expect.addSnapshotSerializer({
-  test: (foo) => foo && typeof foo === 'object' && foo[dirSnapshotSymbol],
-  print(val: any) {
-    return val.str;
-  },
-});
-
-test('rollup output without plugin', async () => {
-  const outDir = await makeRollupFixture('rollup-no-plugin', {
+test('rollup output without severed plugin', async () => {
+  const outDir = await makeRollupFixture(cwd, 'rollup-no-plugin', {
     input: path.join(cwd, 'input', 'index.js'),
   });
 
@@ -93,7 +29,7 @@ test('rollup output without plugin', async () => {
 });
 
 test('rollup output with writeCSSFiles: true', async () => {
-  const outDir = await makeRollupFixture('rollup-writeCSSFiles', {
+  const outDir = await makeRollupFixture(cwd, 'rollup-writeCSSFiles', {
     input: path.join(cwd, 'input', 'index.js'),
     plugins: [rollupPlugin({ writeCSSFiles: true })],
   });
@@ -113,7 +49,7 @@ test('rollup output with writeCSSFiles: true', async () => {
 });
 
 test('rollup output with default settings and no css plugin', async () => {
-  const error = await makeRollupFixture('rollup-writeCSSFiles', {
+  const error = await makeRollupFixture(cwd, 'rollup-writeCSSFiles', {
     input: path.join(cwd, 'input', 'index.js'),
     plugins: [rollupPlugin()],
   }).catch((error) => error);
@@ -130,7 +66,7 @@ test('rollup output with default settings and no css plugin', async () => {
 });
 
 test('rollup output with default settings and rollup-plugin-css-only', async () => {
-  const outDir = await makeRollupFixture('rollup-writeCSSFiles', {
+  const outDir = await makeRollupFixture(cwd, 'rollup-writeCSSFiles', {
     input: path.join(cwd, 'input', 'index.js'),
     plugins: [rollupPlugin(), rollupPluginCSSOnly() as any],
   });
@@ -148,7 +84,7 @@ test('rollup output with default settings and rollup-plugin-css-only', async () 
 });
 
 test('esbuild output with default settings', async () => {
-  const outDir = await makeEsbuildFixture('esbuild-default', {
+  const outDir = await makeEsbuildFixture(cwd, 'esbuild-default', {
     entryPoints: [path.join(cwd, 'input', 'index.js')],
     plugins: [esbuildPlugin()],
     bundle: true,
@@ -171,3 +107,5 @@ test('esbuild output with default settings', async () => {
     }
   `);
 });
+
+// TODO: esbuild with writeCSSFiles: true

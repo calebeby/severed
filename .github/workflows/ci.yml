@@ -34,9 +34,27 @@ jobs:
       - run: pnpm test:cov
       - uses: codecov/codecov-action@v2
         with:
-          # directory: ./packages/severed/coverage
-          # files: cobertura-coverage.xml
           fail_ci_if_error: true
+
+      - name: Coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: './packages/severed/coverage/lcov.info'
+          base-path: './packages/severed'
+
+      - uses: codacy/codacy-coverage-reporter-action@v1
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: './packages/severed/coverage/cobertura-coverage.xml'
+
+      - name: Code Climate
+        uses: paambaati/codeclimate-action@v3.0.0
+        env:
+          CC_TEST_REPORTER_ID: ${{secrets.CC_TEST_REPORTER_ID}}
+        with:
+          coverageLocations: |
+            ${{github.workspace}}/packages/severed/coverage/cobertura-coverage.xml:cobertura
 
   build:
     runs-on: ubuntu-latest

@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     includeSource: ['**.ts'],
     coverage: {
-      reporter: ['text', 'cobertura', 'html-spa'],
+      reporter: ['text', 'cobertura', 'html-spa', 'lcovonly'],
     },
   },
   resolve: {

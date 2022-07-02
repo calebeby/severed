@@ -142,22 +142,19 @@ export const transform = async (
             if (id === virtualEntry)
               return { id: id, moduleSideEffects: false };
             if (importer === virtualEntry) {
-              return this.resolve(id, topFileId, { skipSelf: true });
+              const resolveResult: rollup.ResolvedId | null =
+                await this.resolve(id, topFileId, {
+                  skipSelf: true,
+                });
+              if (!resolveResult) return;
+              const ext = path.extname(resolveResult.id);
+              return {
+                ...resolveResult,
+                moduleSideEffects: false,
+                // TODO: test
+                external: resolveResult.external || ext === '.css',
+              };
             }
-            // const outerResolveResult = await resolve?.(
-            //   id2,
-            //   importer === virtualEntry ? id : importer,
-            // );
-            // if (outerResolveResult) {
-            //   const ext = path.extname(id2);
-            //   return {
-            //     id: outerResolveResult.id,
-            //     // TODO: more exts?
-            //     // TODO: test
-            //     external: ext === '.css',
-            //     moduleSideEffects: false,
-            //   };
-            // }
           },
           load(id) {
             if (id === virtualEntry) return modifiedCode.code;

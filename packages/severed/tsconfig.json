@@ -1,12 +1,17 @@
 {
-  "include": ["*.ts"],
+  "include": ["*.ts", "**/*.ts"],
+  "exclude": ["./fixtures/*/**"],
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "paths": {
       "unplugin": ["./node_modules/unplugin/dist/index.d.ts"],
       "meriyah": ["./node_modules/meriyah/dist/src/meriyah.d.ts"],
       "estree": ["./node_modules/@types/estree/index.d.ts"],
-      "magic-string-original-types": ["./node_modules/magic-string/index.d.ts"]
+      "magic-string-original-types": ["./node_modules/magic-string/index.d.ts"],
+      "severed": ["./index.ts"],
+      "@rollup/plugin-node-resolve": [
+        "./node_modules/@rollup/plugin-node-resolve/types/index.d.ts"
+      ]
     }
   }
 }

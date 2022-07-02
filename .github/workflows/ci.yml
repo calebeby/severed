@@ -47,6 +47,14 @@ jobs:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           coverage-reports: './packages/severed/coverage/cobertura-coverage.xml'
 
+      - name: Code Climate
+        uses: paambaati/codeclimate-action@v3.0.0
+        env:
+          CC_TEST_REPORTER_ID: ${{secrets.CC_TEST_REPORTER_ID}}
+        with:
+          coverageLocations: |
+            ${{github.workspace}}/packages/severed/lcov.info:lcov
+
   build:
     runs-on: ubuntu-latest
     strategy:

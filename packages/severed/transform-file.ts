@@ -152,6 +152,7 @@ export const transform = async (
                 ...resolveResult,
                 moduleSideEffects: false,
                 // TODO: test
+                // TODO: more extensions
                 external: resolveResult.external || ext === '.css',
               };
             }
@@ -184,6 +185,7 @@ export const transform = async (
       if (exportName.startsWith(exportPrefix)) {
         const exportNum = Number(exportName.slice(exportPrefix.length));
         if (typeof css !== 'string')
+          /* c8 ignore next */
           throw new Error('expected css to evaluate to string');
         const className = emitCSS(css);
 

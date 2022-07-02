@@ -34,6 +34,7 @@ const makePlugin = (build?: esbuild.PluginBuild) =>
         options(opts) {
           otherPlugins = opts.plugins?.filter(
             (plugin): plugin is rollup.Plugin => {
+              /* c8 ignore next */
               if (!plugin) return false;
               if (plugin.name === PLUGIN_NAME) return false;
               return true;

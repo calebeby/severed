@@ -53,7 +53,7 @@ jobs:
           CC_TEST_REPORTER_ID: ${{secrets.CC_TEST_REPORTER_ID}}
         with:
           coverageLocations: |
-            ${{github.workspace}}/packages/severed/coverage/lcov.info:lcov
+            ${{github.workspace}}/packages/severed/coverage/cobertura-coverage.xml:cobertura
 
   build:
     runs-on: ubuntu-latest

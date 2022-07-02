@@ -1,3 +1,4 @@
+/* c8 ignore start */
 import * as rollup from 'rollup';
 import * as esbuild from 'esbuild';
 import { expect } from 'vitest';
@@ -96,3 +97,5 @@ expect.addSnapshotSerializer({
     return val.str;
   },
 });
+
+/* c8 ignore stop */

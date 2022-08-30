@@ -35,10 +35,13 @@ test('rollup output without severed plugin', async () => {
       rollupPluginEsbuild(),
       nodeResolve({ extensions: ['.js', '.ts'] }),
     ],
+    external: /foo\.css$/,
   });
 
   expect(await dirSnapshot(outDir)).toMatchInlineSnapshot(`
     file index.js {
+      import './foo.css';
+      
       doesNotExist;
       const green = "#0f0";
       const getPurple = () => "#f0f";
@@ -68,6 +71,7 @@ test('rollup output with writeCSSFiles: true', async () => {
       nodeResolve({ extensions: ['.js', '.ts'] }),
       rollupPlugin({ writeCSSFiles: true }),
     ],
+    external: /foo\.css$/,
   });
 
   expect(await dirSnapshot(outDir)).toMatchInlineSnapshot(`
@@ -80,6 +84,7 @@ test('rollup output with writeCSSFiles: true', async () => {
     file index.js {
       import './fixtures-multiple-files-with-and-without-css-input-index-js.severed.css';
       import './fixtures-multiple-files-with-and-without-css-input-second-ts.severed.css';
+      import './foo.css';
       
       doesNotExist;
       
@@ -110,6 +115,7 @@ test('rollup output with writeCSSFiles: true and multiple JS entrypoints', async
         nodeResolve({ extensions: ['.js', '.ts'] }),
         rollupPlugin({ writeCSSFiles: true }),
       ],
+      external: /foo\.css$/,
     },
   );
 
@@ -124,6 +130,7 @@ test('rollup output with writeCSSFiles: true and multiple JS entrypoints', async
       import './fixtures-multiple-files-with-and-without-css-input-index-js.severed.css';
       import { foo } from './second.js';
       import './fixtures-multiple-files-with-and-without-css-input-second-ts.severed.css';
+      import './foo.css';
       
       const className = "severed-91d2b32";
       el.classList.add(className);
@@ -131,6 +138,7 @@ test('rollup output with writeCSSFiles: true and multiple JS entrypoints', async
     }
     file second.js {
       import './fixtures-multiple-files-with-and-without-css-input-second-ts.severed.css';
+      import './foo.css';
       
       doesNotExist;
       
@@ -157,10 +165,10 @@ test('rollup output with default settings and no css plugin', async () => {
     '[Error: Unexpected token (Note that you need plugins to import files that are not JavaScript)]',
   );
   expect(error.frame).toMatchInlineSnapshot(`
-    "1: 
-    2: 
-    3: .severed-91d2b32{background:#0f0;}
-       ^"
+    "1: .foo {
+       ^
+    2:   background: red;
+    3: }"
   `);
 });
 
@@ -177,6 +185,11 @@ test('rollup output with default settings and rollup-plugin-css-only', async () 
 
   expect(await dirSnapshot(outDir)).toMatchInlineSnapshot(`
     file bundle.css {
+      .foo {
+        background: red;
+      }
+      
+      
       .severed-91d2b32{background:#0f0;}
       
       .severed-aa4121a{color:#f0f;}
@@ -195,7 +208,7 @@ test('rollup output with default settings and rollup-plugin-css-only', async () 
   `);
 });
 
-test('esbuild output with default settings', async () => {
+test.only('esbuild output with default settings', async () => {
   const outDir = await makeEsbuildFixture(cwd, 'esbuild-default', {
     entryPoints: [path.join(cwd, 'input', 'index.js')],
     plugins: [esbuildPlugin()],

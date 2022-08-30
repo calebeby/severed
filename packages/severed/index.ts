@@ -116,8 +116,9 @@ const makePlugin = (build?: esbuild.PluginBuild) =>
               },
             },
             {
-              name: 'severed-transform-resolve',
+              name: 'severed-parent-transform',
               async transform(code, id) {
+                console.log('parent transform', code, id);
                 return build && (await esbuildTransform(code, id));
               },
             },
